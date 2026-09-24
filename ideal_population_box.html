@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideal Population Box</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  @font-face { font-family: "Benton"; src: url("Benton Sans/Benton Sans Book.otf"); }
+  @font-face { font-family: "BentonStrong"; src: url("Benton Sans/Benton Sans Bold.otf"); }
+  @font-face { font-family: "BentonMedium"; src: url("Benton Sans/Benton Sans Medium.otf"); }
+
+  :root {
+    --bg: #ffffff; --text: #000000; --grid: #dbdada;
+    --yellow: #ffcf01; --red: #ed1c24; --blue: #007194; --orange: #f67613; --green: #12a657; --purple: #711471;
+    --font-sans: "Benton", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  body { font-size: 17px; line-height: 1.55; }
+  b, strong { font-family: "BentonStrong"; font-weight: normal; }
+
+  header { max-width: 1280px; margin: 0 auto; padding: 40px 16px 8px; }
+  #title { max-width: 800px; padding-top: 14px; }
+  h1 { margin: 0; font-size: 20px; line-height: 1.6; font-family: "BentonStrong"; font-weight: normal; }
+
+  .scrolly { position: relative; max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+  .graphic { position: sticky; top: 0; height: 100vh; display: flex; align-items: center; z-index: 1; }
+  .graphic svg { width: 100%; height: auto; max-height: 94vh; display: block; }
+  .steps { position: relative; z-index: 2; margin-top: -100vh; }
+  .step { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .step:first-child { margin-top: 30vh; }
+  .step:last-child { margin-bottom: 50vh; }
+  .step .card { background: var(--bg); border: 1px solid black; padding: 18px 20px; max-width: 420px; }
+
+  #chart svg { max-width: 1140px; margin: 0 auto; }
+  .label text { font-family: "BentonStrong"; font-size: 15px; }
+  .label path { fill: none; stroke: #000; stroke-width: 1.5; }
+  .label text .sub { font-family: "Benton"; }
+  .label path.head { fill: #000; stroke: none; }
+  .box { fill: #e6e6e6; }
+  .cell { fill: #e6e6e6; stroke: #ffffff; stroke-width: 2; }
+  .largest { color: var(--orange); }
+  .smallest { color: var(--blue); }
+
+</style>
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:1000;background:#ed1c24;color:#fff;font-family:'BentonStrong',-apple-system,sans-serif;font-size:14px;letter-spacing:0.08em;text-align:center;padding:8px 16px;">DRAFT - FOR TESTING ONLY DO NOT SHARE</div>
+<header>
+  <div id="title"><h1></h1></div>
+</header>
+
+<section class="scrolly">
+  <div class="graphic"><div style="width:100%" id="chart"></div></div>
+  <div class="steps">
+    <div class="step" data-scene="0"><div class="card">
+      This box represents <b>100%</b> of Tennessee's population.
+    </div></div>
+    <div class="step" data-scene="1"><div class="card">
+      The ideal population of a House seat is the population of each House seat within a state if they were all equal in population size. This means that for its <b>81</b> House seats, the ideal population per House seat for Tennessee was <b>20,410</b>. Here, each square represents a seat.
+    </div></div>
+    <div class="step" data-scene="2"><div class="card">
+      Even in 1900, some House seats represented smaller and some larger populations. The largest was <b class="largest">Davidson &amp; Wilson at 149,893</b>, and the smallest was <b class="smallest">Moore at 5,706</b>.
+    </div></div>
+    <div class="step" data-scene="3"><div class="card">
+      The real population growth in the decades between 1900 and 1960 exaggerated this unequal representation. Here it is in 1910.
+    </div></div>
+    <div class="step" data-scene="4"><div class="card">
+      Here it is in 1920, 1930, 1940, 1950, and 1960.
+    </div></div>
+  </div>
+</section>
+
+<script>
+// Population per seat for each House district, 1900-1960 (v = 1900)
+const YEARS = [1900, 1910, 1920, 1930, 1940, 1950, 1960];
+const YEAR_TOTAL = [2020616, 2184789, 2337885, 2616556, 2915841, 3291718, 3567089];
+const YEAR_IDEAL = [20410.3, 22068.6, 23615.0, 26429.9, 29452.9, 33249.7, 36031.2];
+const DISTRICTS = [{"name":"Bedford","v":23845,"pop":[23845,22667,21737,21077,23151,23627,23150]},{"name":"Blount","v":19206,"pop":[19206,20809,28800,33989,41116,54691,57525]},{"name":"Cannon","v":12121,"pop":[12121,10825,10241,8935,9880,9174,8537]},{"name":"Carroll","v":24250,"pop":[24250,23971,24361,26132,25978,26553,23476]},{"name":"Chester","v":9896,"pop":[9896,9090,9669,10603,11124,11149,9569]},{"name":"Cocke","v":19153,"pop":[19153,19399,20782,21775,24083,22991,23390]},{"name":"Claiborne","v":20696,"pop":[20696,23504,23286,24313,24657,24788,19067]},{"name":"Coffee","v":15574,"pop":[15574,15625,17344,16801,18959,23049,28603]},{"name":"Crockett","v":15867,"pop":[15867,16076,17438,17359,17330,16624,14594]},{"name":"DeKalb","v":16460,"pop":[16460,15434,15370,14213,14588,11680,10774]},{"name":"Dickson","v":18635,"pop":[18635,19955,19342,18491,19718,18805,18839]},{"name":"Dyer","v":23776,"pop":[23776,27721,29983,31405,34920,33473,29537]},{"name":"Fayette","v":29701,"pop":[29701,30257,31499,28891,30322,27535,24577]},{"name":"Franklin","v":20392,"pop":[20392,20491,20641,21796,23892,25431,25528]},{"name":"Giles","v":33035,"pop":[33035,32629,30948,28016,29240,26961,22410]},{"name":"Greene","v":30596,"pop":[30596,31083,32824,35119,39405,41048,42163]},{"name":"Hardeman","v":22976,"pop":[22976,23011,22278,22193,23590,23311,21517]},{"name":"Hardin","v":19246,"pop":[19246,17521,17291,16213,17806,16908,17397]},{"name":"Henry","v":24208,"pop":[24208,25434,27151,26432,25877,23828,22275]},{"name":"Hickman","v":16367,"pop":[16367,16527,16216,13613,14873,13353,11862]},{"name":"Hawkins","v":24267,"pop":[24267,23587,22918,24117,28523,30494,30468]},{"name":"Haywood","v":25189,"pop":[25189,25910,25386,26063,27699,26212,23393]},{"name":"Jackson","v":15039,"pop":[15039,15036,14955,13589,15082,12348,9233]},{"name":"Lake","v":7368,"pop":[7368,8704,9075,10486,11235,11655,9572]},{"name":"Lauderdale","v":21971,"pop":[21971,21105,21494,23406,24461,25047,21844]},{"name":"Lawrence","v":15402,"pop":[15402,17569,23593,26776,28726,28818,28049]},{"name":"Lincoln","v":26304,"pop":[26304,25908,25786,25422,27214,25624,23829]},{"name":"Marion","v":12881,"pop":[12881,14559,14922,13872,14904,13599,12197]},{"name":"Marshall","v":36333,"pop":[36333,39357,43824,51059,54115,60128,60655]},{"name":"Maury","v":17281,"pop":[17281,18820,17402,17549,19140,20520,21036]},{"name":"Monroe","v":18585,"pop":[18585,20716,22060,21377,24275,24513,23316]},{"name":"Montgomery","v":36017,"pop":[36017,33672,32265,30882,33346,44186,55645]},{"name":"Moore","v":5706,"pop":[5706,4800,4491,4037,4093,3948,3454]},{"name":"McMinn","v":18763,"pop":[18763,16872,17375,15574,16030,17768,16859]},{"name":"McNairy","v":42703,"pop":[42703,40456,35403,34016,40357,40368,41699]},{"name":"Obion","v":28286,"pop":[28286,29946,28393,29086,30978,29056,26957]},{"name":"Overton","v":13353,"pop":[13353,15854,17617,18079,18883,17566,14661]},{"name":"Putnam","v":16890,"pop":[16890,20023,22231,23759,26250,29869,29236]},{"name":"Roane","v":22738,"pop":[22738,22860,24624,24477,27795,31665,39133]},{"name":"Robertson","v":25029,"pop":[25029,25466,25621,28191,29046,27024,27335]},{"name":"Rutherford","v":33543,"pop":[33543,33199,33059,32286,33604,40696,52368]},{"name":"Sevier","v":22021,"pop":[22021,22296,22384,20480,23291,23375,24251]},{"name":"Smith","v":19026,"pop":[19026,18548,17134,15473,16148,14098,12059]},{"name":"Stewart","v":15224,"pop":[15224,14860,14664,13278,13549,9175,7851]},{"name":"Sullivan","v":24935,"pop":[24935,28120,36259,51087,69085,95063,114139]},{"name":"Sumner","v":26072,"pop":[26072,25621,27708,28622,32719,33533,36217]},{"name":"Tipton","v":29273,"pop":[29273,29459,30258,27498,28036,29782,28564]},{"name":"Warren","v":16410,"pop":[16410,16534,17306,20209,19764,22271,23102]},{"name":"Washington","v":22604,"pop":[22604,28968,34052,45805,51631,59971,64832]},{"name":"White","v":14157,"pop":[14157,15420,15701,15543,15983,16204,15577]},{"name":"Weakley","v":32546,"pop":[32546,31929,31053,29262,29498,27962,24227]},{"name":"Williamson","v":26429,"pop":[26429,24213,23409,22845,25220,24307,25267]},{"name":"Wilson","v":27078,"pop":[27078,25394,26241,23929,25267,26318,27668]},{"name":"Gibson","v":19704,"pop":[19704,20815,21694,23264,22418,24066,22350]},{"name":"Madison","v":8880,"pop":[8880,8178,9175,9950,10212,10195,9042]},{"name":"Knox","v":24767,"pop":[24767,31396,37642,51967,59489,74336,83508]},{"name":"Hamilton","v":22367,"pop":[22367,31492,38651,53166,60159,69418,79302]},{"name":"Davidson","v":20469,"pop":[20469,24913,27969,37142,42878,53626,66624]},{"name":"Shelby","v":19195,"pop":[19195,23930,27902,38310,44781,60299,78377]},{"name":"Johnson & Carter","v":27277,"pop":[27277,33029,33718,41432,48125,54710,52343]},{"name":"Sullivan & Hawkins","v":49202,"pop":[49202,51707,59177,75204,97608,125557,144607]},{"name":"Washington, Greene, & Unicoi","v":59051,"pop":[59051,67252,76996,93602,105164,116905,122077]},{"name":"Jefferson & Hamblen","v":31318,"pop":[31318,31405,32733,34530,37232,43643,54585]},{"name":"Hancock & Grainger","v":26659,"pop":[26659,24666,23823,22410,25587,22202,20263]},{"name":"Scott, Campbell, & Union","v":41288,"pop":[41288,51748,53291,52278,56127,60401,51847]},{"name":"Anderson & Morgan","v":27221,"pop":[27221,29175,31583,33325,41746,75134,74336]},{"name":"Knox & Loudon","v":85140,"pop":[85140,107799,129201,173707,198306,246189,274280]},{"name":"Polk & Bradley","v":27116,"pop":[27116,30452,32895,38556,43971,46412,50484]},{"name":"Meigs & Rhea","v":21809,"pop":[21809,21541,19889,19998,22746,22121,21023]},{"name":"Cumberland, Bledsoe, Sequatchie, Van Buren, & Grundy","v":29191,"pop":[29191,30964,33321,35848,44630,49666,48044]},{"name":"Fentress, Pickett, Overton, Clay, & Putnam","v":50136,"pop":[50136,57419,64681,68066,76512,76146,68905]},{"name":"Sumner, Trousdale, & Macon","v":51239,"pop":[51239,52541,58837,63270,69613,71077,74793]},{"name":"Davidson & Wilson","v":149893,"pop":[149893,174872,194056,246783,282534,348076,427411]},{"name":"Giles, Lewis, Maury, & Wayne","v":67707,"pop":[67707,69544,66934,62957,67867,67423,61623]},{"name":"Williamson, Cheatham, & Robertson","v":61570,"pop":[61570,60219,59069,60061,64194,60498,62030]},{"name":"Montgomery & Houston","v":42493,"pop":[42493,39896,38477,36437,39778,49504,60439]},{"name":"Humphreys & Perry","v":22198,"pop":[22198,22723,21247,19186,19956,17492,16784]},{"name":"Benton & Decatur","v":22327,"pop":[22327,22545,22244,21343,22237,20937,18986]},{"name":"Henry, Weakley, & Carroll","v":81004,"pop":[81004,81334,82565,81826,81353,78343,69978]},{"name":"Madison & Henderson","v":35877,"pop":[35877,33386,36786,37556,39644,37563,34200]},{"name":"Tipton & Lauderdale","v":51244,"pop":[51244,50564,51752,50904,52497,54829,50408]}];
+const N = DISTRICTS.length;   // 81
+
+const BOX = 600, PAD = 40, MX = 270;   // 600x600 box, side margins for labels
+const svg = d3.select("#chart").append("svg").attr("viewBox", `0 0 ${BOX + MX * 2} ${BOX + PAD * 2}`);
+const g = svg.append("g").attr("transform", `translate(${MX},${PAD})`);
+
+g.append("rect").attr("class", "box").attr("width", BOX).attr("height", BOX);
+
+// Rows of equal count and equal height. Districts are dealt out in a snake
+// order, then swapped between rows until row totals are as even as possible,
+// so width-only resizing keeps each cell's area close to its population.
+const nRows = Math.round(Math.sqrt(N));
+const ROW_H = BOX / nRows;
+const rows = d3.range(nRows).map(() => []);
+d3.sort(DISTRICTS, d => -d.v).forEach((d, i) => {
+  const lap = Math.floor(i / nRows), k = i % nRows;
+  rows[lap % 2 ? nRows - 1 - k : k].push(d);
+});
+const rowSum = r => d3.sum(r, d => d.v);
+for (let improved = true; improved;) {
+  improved = false;
+  for (let a = 0; a < nRows; a++) for (let b = a + 1; b < nRows; b++) {
+    for (let i = 0; i < rows[a].length; i++) for (let j = 0; j < rows[b].length; j++) {
+      const sa = rowSum(rows[a]), sb = rowSum(rows[b]);
+      const diff = rows[a][i].v - rows[b][j].v;
+      if (Math.abs((sa - diff) - (sb + diff)) < Math.abs(sa - sb) - 1) {
+        [rows[a][i], rows[b][j]] = [rows[b][j], rows[a][i]];
+        improved = true;
+      }
+    }
+  }
+}
+const shuffle = d3.shuffler(d3.randomLcg(0.42));
+rows.forEach(r => shuffle(r));
+rows.forEach((r, ri) => {
+  const sum = rowSum(r);
+  r.forEach((d, ci) => {
+    d.row = ri; d.col = ci;
+    d.w0 = BOX / r.length;      // equal width
+    d.w1 = BOX * d.v / sum;     // width by population
+  });
+});
+
+// Morph order: shrinking cells first, then growing ones, each smallest to largest.
+const STEP = 35, DUR = 650;
+d3.sort(DISTRICTS, d => d.w1 > d.w0 ? 1 : 0, d => d.v).forEach((d, i) => { d.delay = i * STEP; });
+const MORPH = (N - 1) * STEP + DUR;
+
+// Sorted layout: smallest to largest in reading order, 9 per row, row heights
+// by row total so every cell's area stays proportional to its population.
+const sorted = d3.sort(DISTRICTS, d => d.v);
+const grand = d3.sum(sorted, d => d.v);
+let sy = 0;
+d3.range(nRows).forEach(ri => {
+  const r = sorted.slice(ri * nRows, (ri + 1) * nRows), sum = d3.sum(r, d => d.v);
+  const h = BOX * sum / grand;
+  let x = 0;
+  r.forEach(d => { const w = BOX * d.v / sum; d.s = { x, y: sy, w, h }; x += w; });
+  sy += h;
+});
+// Decade layouts keep the same rows as the 1900 sorted layout; row heights and
+// widths follow each decade's populations.
+DISTRICTS.forEach(d => { d.yr = []; });
+YEARS.forEach((_, yi) => {
+  const total = d3.sum(sorted, d => d.pop[yi]);
+  let y = 0;
+  d3.range(nRows).forEach(ri => {
+    const r = sorted.slice(ri * nRows, (ri + 1) * nRows), sum = d3.sum(r, d => d.pop[yi]);
+    const h = BOX * sum / total;
+    let x = 0;
+    r.forEach(d => { const w = BOX * d.pop[yi] / sum; d.yr[yi] = { x, y, w, h }; x += w; });
+    y += h;
+  });
+});
+const SORT_STEP = 20, SORT_DUR = 800;
+sorted.forEach((d, i) => { d.sortDelay = i * SORT_STEP; });
+const SORT = (N - 1) * SORT_STEP + SORT_DUR;
+
+const smallest = d3.least(DISTRICTS, d => d.v), largest = d3.greatest(DISTRICTS, d => d.v);
+const css = getComputedStyle(document.documentElement);
+const IDEAL = 20410;
+const closest = d3.least(DISTRICTS, d => Math.abs(d.v - IDEAL));
+// Diverging on a log scale of population / that decade's ideal: blue below,
+// grey at ideal, orange above. The extremes are set by 1900.
+const color = d3.scaleLinear()
+  .domain([Math.log(smallest.v / IDEAL), 0, Math.log(largest.v / IDEAL)])
+  .range([css.getPropertyValue("--blue").trim(), "#e6e6e6", css.getPropertyValue("--orange").trim()])
+  .interpolate(d3.interpolateLab).clamp(true);
+
+// Values at a fractional decade index, e.g. 0.5 = halfway from 1900 to 1910.
+const lerp = (a, b, t) => a + (b - a) * t;
+function atYear(yt, f) {
+  const i = Math.min(Math.floor(yt), YEARS.length - 2), t = yt - i;
+  return lerp(f(i), f(i + 1), t);
+}
+
+const cells = g.append("g").selectAll("rect").data(rows.flat()).join("rect")
+  .attr("class", "cell")
+  .attr("stroke-opacity", 0)
+  .sort((a, b) => b.v - a.v);   // smaller cells on top, since they move first when sorting
+
+// clock runs 0..MORPH; each cell eases between its two widths on its own slot,
+// and every row is rescaled to the full box width so the outside never moves.
+// sortClock runs 0..SORT and moves each cell on to its sorted position.
+// colorP fades grey to color; yearT moves through the decades (0 = 1900).
+let clock = 0, sortClock = 0, colorP = 0, yearT = 0;
+let labels = null;   // set once the labels are built
+function render() {
+  rows.forEach(r => {
+    const ws = r.map(d => {
+      const p = d3.easeCubicInOut(Math.max(0, Math.min(1, (clock - d.delay) / DUR)));
+      return d.w0 + (d.w1 - d.w0) * p;
+    });
+    const k = BOX / d3.sum(ws);
+    let x = 0;
+    r.forEach((d, i) => { d.x = x; d.w = ws[i] * k; x += d.w; });
+  });
+  cells.each(function (d) {
+    const p = d3.easeCubicInOut(Math.max(0, Math.min(1, (sortClock - d.sortDelay) / SORT_DUR)));
+    const y = d.row * ROW_H;
+    // Decade change is added on top as an offset from the 1900 layout.
+    const dy = k => yearT ? atYear(yearT, i => d.yr[i][k]) - d.yr[0][k] : 0;
+    const ratio = atYear(yearT, i => Math.log(d.pop[i] / YEAR_IDEAL[i]));
+    d.cur = {
+      x: lerp(d.x, d.s.x, p) + dy("x"), w: lerp(d.w, d.s.w, p) + dy("w"),
+      y: lerp(y, d.s.y, p) + dy("y"), h: lerp(ROW_H, d.s.h, p) + dy("h")
+    };
+    d3.select(this)
+      .attr("x", d.cur.x).attr("width", d.cur.w).attr("y", d.cur.y).attr("height", d.cur.h)
+      .style("fill", d3.interpolateLab("#e6e6e6", color(ratio))(colorP));
+  });
+  if (labels) updateLabels();
+}
+
+// Labels for the largest and smallest districts and the one closest to ideal:
+// a curved arrow from outside the square, on the side nearer the cell's 1900
+// sorted position. updateLabels() keeps the arrows on the cells and the
+// populations on the current decade as the layout changes.
+[largest, smallest, closest].forEach(d => {
+  d.labelColor = d === largest ? "var(--orange)" : d === smallest ? "var(--blue)" : "var(--text)";
+  d.left = d.s.x + d.s.w / 2 < BOX / 2;
+});
+labels = g.append("g").selectAll("g").data([largest, smallest, closest]).join("g")
+  .attr("class", "label").attr("opacity", 0);
+labels.each(function (d) {
+  const lab = d3.select(this);
+  const text = lab.append("text").attr("dy", "0.35em")
+    .attr("text-anchor", d.left ? "end" : "start").style("fill", d.labelColor);
+  text.append("tspan").attr("class", "name").text(d.name);
+  text.append("tspan").attr("class", "sub count").attr("dy", "1.3em");
+  if (d === closest) text.append("tspan").attr("class", "sub").attr("dy", "1.3em")
+    .text("closest to ideal population");
+  lab.append("path").attr("class", "line");
+  lab.append("path").attr("class", "head");
+});
+function updateLabels() {
+  labels.each(function (d) {
+    const p = d.cur, cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    const lx = d.left ? -28 : BOX + 28;
+    const ly = Math.max(12, Math.min(BOX - 12, cy + (cy < BOX / 2 ? 36 : -36)));
+    const lab = d3.select(this);
+    lab.select("text").attr("y", ly).selectAll("tspan").attr("x", lx);
+    lab.select(".count").text(d3.format(",")(Math.round(atYear(yearT, i => d.pop[i]))));
+    const x0 = lx + (d.left ? 6 : -6);
+    // The curve ends travelling vertically toward the cell; the head's tip sits at the end.
+    const dir = ly > cy ? -1 : 1, tipY = cy - dir * 4, baseY = tipY - dir * 9;
+    lab.select(".line").attr("d", `M${x0},${ly} Q${cx},${ly} ${cx},${baseY}`);
+    lab.select(".head").attr("d", `M${cx},${tipY} L${cx - 4.5},${baseY} L${cx + 4.5},${baseY}Z`);
+  });
+}
+render();
+
+// Total population beside the square, with a bracket along its right side.
+const total = g.append("g").attr("class", "label").attr("opacity", 0);
+total.append("path").attr("d", `M${BOX + 10},0 H${BOX + 18} V${BOX} H${BOX + 10}`);
+const totalText = total.append("text").attr("x", BOX + 28).attr("y", BOX / 2).attr("dy", "-0.3em");
+totalText.append("tspan").text("100% of Tennessee's population");
+const totalSub = totalText.append("tspan").attr("class", "sub").attr("x", BOX + 28).attr("dy", "1.3em");
+const setTotalYear = yi => totalSub.text(`${d3.format(",")(YEAR_TOTAL[yi])} in ${YEARS[yi]}`);
+setTotalYear(0);
+
+// ---------- scenes ----------
+const T = 700;
+let current = -1;
+
+function setScene(s) {
+  if (s === current) return;
+  const forward = s > current;
+  current = s;
+
+  cells.transition("grid").duration(T)
+    .delay(d => (s === 1 && forward) ? (d.row * 9 + d.col) * 12 : 0)
+    .attr("stroke-opacity", s >= 1 ? 1 : 0);
+
+  const target = s >= 2 ? MORPH : 0;
+  svg.transition("size").ease(d3.easeLinear)
+    .duration(s === 2 && forward ? Math.abs(target - clock) : T)
+    .tween("clock", () => {
+      const i = d3.interpolateNumber(clock, target);
+      return t => { clock = i(t); render(); };
+    });
+
+  const colorTarget = s >= 2 ? 1 : 0;
+  svg.transition("color").duration(T)
+    .delay(s === 2 && forward ? MORPH : 0)
+    .tween("colorP", () => {
+      const i = d3.interpolateNumber(colorP, colorTarget);
+      return t => { colorP = i(t); render(); };
+    });
+
+  const sortTarget = s >= 2 ? SORT : 0;
+  svg.transition("sort").ease(d3.easeLinear)
+    .delay(s === 2 && forward ? MORPH + T : 0)
+    .duration(s === 2 && forward ? Math.abs(sortTarget - sortClock) : T)
+    .tween("sortClock", () => {
+      const i = d3.interpolateNumber(sortClock, sortTarget);
+      return t => { sortClock = i(t); render(); };
+    });
+
+  if (s === 0) setTotalYear(0);
+  total.transition("total").duration(T)
+    .attr("opacity", s === 0 || s === 4 ? 1 : 0);
+
+  labels.transition("label").duration(T)
+    .delay(s === 2 && forward ? MORPH + T + SORT : 0)
+    .attr("opacity", s >= 2 ? 1 : 0);
+
+  // Step 4: morph to 1910. Step 5: play through each later decade in turn,
+  // pausing on each, with the side label showing the decade being moved to.
+  const yearTarget = s === 4 ? YEARS.length - 1 : s >= 3 ? 1 : 0;
+  const playing = s === 4 && forward && yearT < yearTarget;
+  if (playing) {
+    const from = Math.floor(yearT), n = yearTarget - from, MOVE = 1400, HOLD = 700;
+    svg.transition("year").duration(n * (MOVE + HOLD)).ease(d3.easeLinear)
+      .tween("yearT", () => t => {
+        const seg = Math.min(n - 1, Math.floor(t * n)), f = t * n - seg;
+        setTotalYear(from + seg + 1);
+        yearT = from + seg + d3.easeCubicInOut(Math.min(1, f * (MOVE + HOLD) / MOVE));
+        render();
+      });
+  } else {
+    svg.transition("year").duration(s === 3 && forward ? 1500 : T).ease(d3.easeCubicInOut)
+      .tween("yearT", () => {
+        const i = d3.interpolateNumber(yearT, yearTarget);
+        return t => { yearT = i(t); render(); };
+      });
+  }
+}
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    document.querySelectorAll(".step").forEach(el => el.classList.toggle("active", el === e.target));
+    setScene(+e.target.dataset.scene);
+  });
+}, { rootMargin: "-45% 0px -45% 0px" });
+document.querySelectorAll(".step").forEach(el => observer.observe(el));
+setScene(0);
+</script>
+</body>
+</html>

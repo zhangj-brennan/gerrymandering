@@ -1,0 +1,293 @@
+@font-face {
+  font-family: "Benton";
+  src: url("Benton Sans/Benton Sans Book.otf");
+}
+
+@font-face {
+  font-family: "BentonStrong";
+  src: url("Benton Sans/Benton Sans Bold.otf");
+}
+
+@font-face {
+  font-family: "BentonMedium";
+  src: url("Benton Sans/Benton Sans Medium.otf");
+}
+
+/* ------------------------------------------------------------------ */
+/* COLOR CONFIG — the diverging scale's colors. Also settable from the */
+/* CONFIG.colors block at the top of index.html's <script>, which     */
+/* overrides these at runtime; edit either place, they stay in sync.  */
+/* ------------------------------------------------------------------ */
+:root {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --text: #000000;
+  --muted: #000000;
+  --border: #ffffff;
+  --accent: #ed1c24;
+  --max: 1200px;
+  --gutter: 24px;
+  --section-gap: 40px;
+  --card-gap: 24px;
+  --radius: 0;
+  --shadow: none;
+  --font-sans: "Benton", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --yellow: #ffcf01;
+  --red: #ed1c24;
+  --blue: #007194;
+  --orange: #f67613;
+  --green: #12a657;
+  --purple: #711471;
+  --div-neg: var(--yellow);
+  --div-mid: #dbdada;
+  --div-pos: var(--purple);
+  --div-none: #cfcdc7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+
+#container {
+  margin: 10px;
+}
+
+#title {
+  max-width: 800px;
+  padding-top: 14px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  line-height: 1.6;
+  font-family: "BentonStrong";
+}
+
+#subtitle {
+  font-family: "Benton";
+  font-size: 14px;
+  line-height: 19px;
+}
+
+h3 {
+  margin: 0 0 0px;
+  font-size: 12px;
+  line-height: 1;
+  font-family: "BentonStrong";
+}
+
+.footnote {
+  font-size: 10px;
+  width: 500px;
+  max-width: 100%;
+}
+.footnote strong {
+  font-family: "BentonStrong";
+}
+
+.toggle-btn {
+  font-family: "BentonStrong";
+  font-size: 12px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid black;
+  border-radius: var(--radius);
+  background-color: white;
+  color: black;
+  cursor: pointer;
+}
+.toggle-btn.active {
+  background-color: black;
+  color: white;
+}
+
+.panel {
+  max-width: 800px;
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 6px 20px 18px;
+  flex-wrap: wrap;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  margin-right: 14.29%;
+}
+.toggle-label {
+  font-family: "BentonStrong";
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.4;
+  transition: opacity 160ms ease;
+}
+.toggle-label.active { opacity: 1; }
+
+.switch {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid black;
+  border-radius: 0;
+  background: white;
+  cursor: pointer;
+  flex: none;
+}
+.switch-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 18px;
+  height: 18px;
+  background: black;
+  transition: transform 160ms ease, background 160ms ease;
+}
+.switch[aria-checked="true"] .switch-knob {
+  transform: translateX(20px);
+  background: black;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 20px 14px;
+}
+.legend h3 {
+  flex: none;
+}
+.legend-buckets { display: flex; gap: 4px; }
+.legend-bucket {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: "BentonMedium";
+  font-size: 10px;
+}
+.legend-bucket .swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid black;
+}
+.legend-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-family: "BentonMedium";
+  font-size: 11px;
+}
+.legend-note .swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid black;
+  background: var(--div-none);
+}
+
+.map-wrap {
+  position: relative;
+  padding: 8px;
+}
+
+svg { display: block; width: 100%; height: auto; }
+
+path.state {
+  stroke: white;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+path.state.is-hover {
+  stroke: black;
+  stroke-width: 3;
+}
+
+g.state-label text {
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  fill: black;
+}
+g.state-label text.abbr,
+g.state-label text.carto-abbr {
+  font-family: "Benton";
+  font-size: 10px;
+}
+g.state-label text.value {
+  font-family: "BentonMedium";
+  font-size: 14px;
+}
+
+.callout-line {
+  fill: none;
+  stroke: black;
+  stroke-width: 0.75;
+}
+
+g.callout text {
+  text-anchor: start;
+  dominant-baseline: central;
+  pointer-events: none;
+  fill: black;
+}
+g.callout text.callout-value {
+  font-family: "BentonMedium";
+  font-size: 14px;
+}
+
+.tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: #fff;
+  color: #000;
+  border: 1px solid black;
+  padding: 10px 12px;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 320px;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 12px));
+  transition: opacity 120ms ease;
+  white-space: normal;
+  z-index: 5;
+}
+.tooltip strong { font-family: "BentonStrong"; }
+.tooltip .sub { font-family: "Benton"; }
+
+.status {
+  padding: 40px 20px;
+  text-align: center;
+  font-family: "Benton";
+  font-size: 13px;
+}
+
+@media (max-width: 500px) {
+  .map-wrap { overflow-x: auto; }
+  .controls { flex-direction: column; align-items: stretch; }
+  .view-toggle { justify-content: center; }
+}
