@@ -10,9 +10,12 @@
   @font-face { font-family: "BentonMedium"; src: url("Benton Sans/Benton Sans Medium.otf"); }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #fff; color: #000; font-family: "Benton", -apple-system, sans-serif; }
-  main { max-width: 800px; padding: 40px 16px 64px; margin: 0 auto 0 0; }
+  main { max-width: 1280px; padding: 40px 16px 64px; margin: 0 auto 0 0; }
   #title { padding-top: 14px; margin-bottom: 24px; }
   h1 { margin: 0; font-size: 20px; line-height: 1.6; font-family: "BentonStrong"; font-weight: normal; }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+  @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+  h2 { margin: 0 0 16px; font-size: 18px; font-family: "BentonStrong"; font-weight: normal; }
   ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
   li a { display: block; border: 1px solid black; padding: 14px 18px; color: #000; text-decoration: none; }
   li a:hover { background: #000; color: #fff; }
@@ -23,6 +26,9 @@
 <div style="position:sticky;top:0;z-index:1000;background:#ed1c24;color:#fff;font-family:'BentonStrong',-apple-system,sans-serif;font-size:14px;letter-spacing:0.08em;text-align:center;padding:8px 16px;">DRAFT - FOR TESTING ONLY DO NOT SHARE</div>
 <main>
   <div id="title"></div>
+  <div class="columns">
+  <section>
+  <h2>House</h2>
   <ol>
     <li><a href="ideal_population_balance.html">
       <div class="name">ideal_population_balance.html</div>
@@ -43,6 +49,16 @@
       <div class="name">House districts</div>
     </a></li>
   </ol>
+  </section>
+  <section>
+  <h2>Senate</h2>
+  <ol>
+    <li><a href="ideal_population_trails_senate.html">
+      <div class="name">ideal_population_trails_senate.html</div>
+    </a></li>
+  </ol>
+  </section>
+  </div>
 </main>
 </body>
 </html>
