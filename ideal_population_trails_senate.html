@@ -41,7 +41,6 @@
   .ideal-line { fill: none; stroke: var(--text); stroke-width: 2; }
   .range { stroke: var(--text); stroke-width: 1.5; }
   .range-label { font-size: 13px; stroke: var(--bg); stroke-width: 3px; paint-order: stroke; }
-  .note { font-size: 13px; fill: var(--text); }
   .ideal-label { font-family: "BentonStrong"; font-size: 15px; }
 </style>
 </head>
@@ -68,8 +67,6 @@ const DISTRICTS = [{"name":"Johnson, Carter, Unicoi, Greene, & Washington","seat
 const IDEAL = YEAR_IDEAL[0];
 const W = 1200, H = 680;
 const svg = d3.select("#chart").append("svg").attr("viewBox", `0 0 ${W} ${H}`);
-svg.append("text").attr("class", "note").attr("text-anchor", "end").attr("x", W).attr("y", H - 6)
-  .text("For counties that have more than 1 seat, county population is divided equally.");
 
 // Decades across; up is population per seat as a multiple of that decade's
 // ideal (log scale), so the ideal is a flat line at 1×.
@@ -154,15 +151,12 @@ function showRanges(upTo) {
 const circles = svg.append("g").selectAll("circle")
   .data(d3.sort(districts, n => -d3.max(n.d.pop))).join("circle");
 
-// Ideal population per seat, drawn along with the circles; labelled at the
-// start, just before the 1900 column.
+// Ideal population per seat, drawn along with the circles; labelled above
+// the line, starting at the 1900 column.
 const idealStops = YEARS.map(year => ({ x: scX(year), y: scY(1) }));
 const idealLine = svg.append("path").attr("class", "ideal-line");
-const firstCol = d3.min(districts, n => n.stops[0].x - n.stops[0].r);
-const idealLabel = svg.append("text").attr("class", "ideal-label").attr("opacity", 0)
-  .attr("y", idealStops[0].y).attr("text-anchor", "end");
-idealLabel.selectAll("tspan").data(["ideal", "population"]).join("tspan")
-  .attr("x", firstCol - 10).attr("dy", (_, i) => i ? "1.2em" : "-0.25em").text(t => t);
+svg.append("text").attr("class", "ideal-label")
+  .attr("x", scX(YEARS[0]) + 10).attr("y", idealStops[0].y).attr("dy", "-0.5em").text("ideal population");
 
 // t runs 0..6 through the decades; each trail is the path so far, drawn
 // through the decade positions rather than the nudged circle positions.
@@ -185,7 +179,6 @@ render();
 const PER_DECADE = 1100;
 function play() {
   svg.interrupt("play");
-  idealLabel.interrupt().attr("opacity", 0);
   ranges.interrupt().attr("opacity", 0).attr("y1", scY(1)).attr("y2", scY(1));
   rangeLabels.interrupt().attr("opacity", 0);
   reached = -1;
@@ -196,8 +189,7 @@ function play() {
       const total = u * (YEARS.length - 1), i = Math.min(Math.floor(total), YEARS.length - 2);
       t = i + d3.easeCubicInOut(total - i);
       render();
-    })
-    .on("end", () => idealLabel.transition().duration(500).attr("opacity", 1));
+    });
 }
 
 const observer = new IntersectionObserver(entries => {
