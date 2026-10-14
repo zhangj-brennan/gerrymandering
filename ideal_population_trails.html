@@ -158,14 +158,14 @@ const circles = svg.append("g").selectAll("circle")
   .data(d3.sort(districts, n => -d3.max(n.d.pop))).join("circle");
 
 // Ideal population per seat, drawn along with the circles; labelled at the
-// end, just past the 1960 column.
+// start, just before the 1900 column.
 const idealStops = YEARS.map(year => ({ x: scX(year), y: scY(1) }));
 const idealLine = svg.append("path").attr("class", "ideal-line");
-const lastCol = d3.max(districts, n => n.stops[YEARS.length - 1].x + n.stops[YEARS.length - 1].r);
+const firstCol = d3.min(districts, n => n.stops[0].x - n.stops[0].r);
 const idealLabel = svg.append("text").attr("class", "ideal-label").attr("opacity", 0)
-  .attr("y", idealStops[YEARS.length - 1].y);
+  .attr("y", idealStops[0].y).attr("text-anchor", "end");
 idealLabel.selectAll("tspan").data(["ideal", "population"]).join("tspan")
-  .attr("x", lastCol + 10).attr("dy", (_, i) => i ? "1.2em" : "-0.25em").text(t => t);
+  .attr("x", firstCol - 10).attr("dy", (_, i) => i ? "1.2em" : "-0.25em").text(t => t);
 
 // t runs 0..6 through the decades; each trail is the path so far, drawn
 // through the decade positions rather than the nudged circle positions.
