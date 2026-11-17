@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MA 1812 Senate Districts</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<style>
+  @font-face { font-family: "Benton"; src: url("Benton Sans/Benton Sans Book.otf"); }
+  @font-face { font-family: "BentonStrong"; src: url("Benton Sans/Benton Sans Bold.otf"); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #ffffff; color: #000; font-family: "Benton", -apple-system, sans-serif; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px; border-top: 1px solid #000; }
+  .instructions { margin: 0 0 20px; font-size: 16px; }
+  #map { display: block; width: 100%; height: auto; }
+  #map .districts path, #map .subs path { stroke: #ffffff; stroke-width: 1; }
+  #map .districts path.clickable, #map .subs path { cursor: pointer; }
+  #map .overlay { pointer-events: none; }
+  #map .overlay path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+  #map .overlay .old10 { stroke: #ffffff; stroke-width: 3; }
+  #map .overlay .new12 { stroke: #ffffff; stroke-width: 3; }
+  #map .overlay .erase { stroke: #ffffff; stroke-width: 2; stroke-linecap: butt; }
+  #tooltip { display: none; position: fixed; pointer-events: none; background: #fff; border: 1px solid #333; padding: 8px 10px; font: 13px/1.4 "Benton", -apple-system, sans-serif; color: #333; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="instructions">Click on an area to toggle between 1812 and 1810</p>
+  <svg id="map" viewBox="0 0 1000 560"></svg>
+</div>
+<div id="tooltip"></div>
+<script>
+  const width = 1000, height = 560;
+  const YELLOW = "#ffcf01", GREY = "#d9d9d9";
+  // Animation speeds: drawing or erasing a line, and fading lines in or out.
+  const DRAW_MS = 3000, FADE_MS = 1600;
+  // Districts whose new lines are revealed left to right instead of traced along each outline.
+  const wipeLeftToRight = new Set(["Worcester"]);
+  // 1810 districts that change in 1812 and can be clicked; everything else is greyed out.
+  const changing = new Set(["Hampshire", "Worcester", "Essex", "Norfolk", "Bristol"]);
+
+  const tooltip = d3.select("#tooltip");
+  const files = { "1810": "map_1812/1810.geojson", "1812": "map_1812/1812.geojson" };
+
+  // d3 expects clockwise rings; flip any individual polygon that comes out inverted.
+  function fixWinding(geo) {
+    geo.features.forEach(f => {
+      const g = f.geometry;
+      const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+      polys.forEach(p => {
+        if (d3.geoArea({ type: "Polygon", coordinates: p }) > 2 * Math.PI) {
+          p.forEach(ring => ring.reverse());
+        }
+      });
+    });
+    return geo;
+  }
+
+  // District of Maine counties (part of Massachusetts until 1820) — left off the map.
+  const maine = new Set(["York", "Oxford", "Somerset", "Hancock"]);
+  const dropMaine = geo => ({ ...geo, features: geo.features.filter(f => !maine.has(f.properties.NHGISNAM)) });
+
+  Promise.all(Object.values(files).map(f => d3.json(f).then(fixWinding).then(dropMaine))).then(geos => {
+    const data = Object.fromEntries(Object.keys(files).map((k, i) => [k, geos[i]]));
+
+    // One projection for both years so the 1812 pieces line up with the 1810 districts.
+    const projection = d3.geoConicConformal()
+      .parallels([41.7, 42.7])
+      .rotate([71.5, 0])
+      .fitSize([width, height], { type: "FeatureCollection", features: geos.flatMap(g => g.features) });
+    const path = d3.geoPath(projection);
+
+    const key = p => p.district12 ?? p.district10;
+
+    // Paint each district into an offscreen canvas with its index encoded in the red
+    // channel, so we can compare which 1810 and 1812 districts cover the same pixels.
+    function rasterize(geo) {
+      const names = [...new Set(geo.features.map(f => key(f.properties)))];
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      const ctxPath = d3.geoPath(projection, ctx);
+      names.forEach((n, i) => {
+        ctx.beginPath();
+        ctxPath({ type: "FeatureCollection", features: geo.features.filter(f => key(f.properties) === n) });
+        ctx.fillStyle = `rgb(${i + 1},0,0)`;
+        ctx.fill();
+      });
+      return { names, px: ctx.getImageData(0, 0, width, height).data };
+    }
+
+    // How many pixels each 1812 district shares with each 1810 district.
+    const r10 = rasterize(data["1810"]);
+    const r12 = rasterize(data["1812"]);
+    const overlap = r12.names.map(() => new Array(r10.names.length).fill(0));
+    for (let i = 0; i < r12.px.length; i += 4) {
+      const a = r12.px[i], b = r10.px[i];
+      if (a && b && a <= r12.names.length && b <= r10.names.length) overlap[a - 1][b - 1]++;
+    }
+
+    const svg = d3.select("#map");
+    const defs = svg.append("defs");
+    const districts = svg.append("g").attr("class", "districts");
+    const subs = svg.append("g").attr("class", "subs");
+    const overlay = svg.append("g").attr("class", "overlay");
+    const collection = (geo, n) => ({ type: "FeatureCollection", features: geo.features.filter(f => key(f.properties) === n) });
+
+    function showTooltip(event, d) {
+      tooltip
+        .style("display", "block")
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY + 14) + "px")
+        .html(Object.entries(d.properties)
+          .filter(([, v]) => v !== null && v !== undefined)
+          .map(([k, v]) => `<div><b>${k}</b>: ${v}</div>`).join(""));
+    }
+    const hideTooltip = () => tooltip.style("display", "none");
+
+    // 1812 districts that cover part of a given 1810 district (ignoring slivers along the edges).
+    function partsOf(name10) {
+      const idx = r10.names.indexOf(name10);
+      const area = overlap.reduce((sum, row) => sum + row[idx], 0);
+      return r12.names.filter((n, i) => overlap[i][idx] > area * 0.005);
+    }
+
+    const done = new Set();
+
+    // 1810 districts that an 1812 district mostly absorbs along with the clicked one
+    // (e.g. Norfolk and Bristol merging into "Bristol and Norfolk").
+    // Only counts when that 1812 district also covers most of the clicked district, so a
+    // neighbor reaching in with a few towns (e.g. Middlesex into Essex) isn't pulled in.
+    function mergedWith(name10) {
+      const i = r10.names.indexOf(name10);
+      const areaOf = j => overlap.reduce((sum, row) => sum + row[j], 0);
+      return r10.names.filter((other, j) => {
+        if (other === name10 || done.has(other)) return false;
+        return overlap.some(row => row[i] > areaOf(i) * 0.5 && row[j] > areaOf(j) * 0.5);
+      });
+    }
+
+    let clipCount = 0;
+
+    // Animate a line drawing in (forward) or erasing back out (reverse).
+    function trace(line, reverse) {
+      const len = line.node().getTotalLength();
+      return line
+        .attr("stroke-dasharray", `${len} ${len}`)
+        .attr("stroke-dashoffset", reverse ? 0 : len)
+        .transition()
+        .duration(DRAW_MS)
+        .ease(d3.easeCubicInOut)
+        .attr("stroke-dashoffset", reverse ? len : 0)
+        .end();
+    }
+
+    async function subdivide(name10) {
+      if (done.has(name10)) return;
+      const region = [name10, ...mergedWith(name10)];
+      region.forEach(n => done.add(n));
+      const shape10 = path({ type: "FeatureCollection", features: data["1810"].features.filter(f => region.includes(key(f.properties))) });
+      const parts = [...new Set(region.flatMap(partsOf))];
+      const state = { region, parts, shape10, busy: true };
+
+      // Clip the 1812 pieces to the 1810 district's shape (plus any district it merges with).
+      state.clipId = `clip-${clipCount++}`;
+      state.clips = [defs.append("clipPath").attr("id", state.clipId)];
+      state.clips[0].append("path").attr("d", shape10);
+
+      // 1812 pieces, with borders in their own color until the outlines are drawn.
+      // Clicking one sends the district back to its 1810 lines.
+      state.group = subs.append("g").attr("clip-path", `url(#${state.clipId})`);
+      const pieces = state.pieces = state.group
+        .selectAll("path")
+        .data(data["1812"].features.filter(f => parts.includes(key(f.properties))))
+        .join("path")
+        .attr("d", path)
+        .attr("fill", YELLOW)
+        .style("stroke", YELLOW)
+        .style("opacity", 0)
+        .on("mousemove", showTooltip)
+        .on("mouseleave", hideTooltip)
+        .on("click", () => revert(state));
+
+      // Merge (e.g. Bristol + Norfolk): show the joined piece right away and erase the old
+      // dividing line backwards, instead of drawing new lines in.
+      if (region.length > 1) {
+        pieces.style("opacity", 1);
+        const otherId = `${state.clipId}-others`;
+        const otherClip = defs.append("clipPath").attr("id", otherId);
+        otherClip.append("path")
+          .attr("d", path({ type: "FeatureCollection", features: data["1810"].features.filter(f => region.slice(1).includes(key(f.properties))) }));
+        state.clips.push(otherClip);
+        // The first district's outline, clipped to the others, is just the shared border.
+        state.divider = () => overlay.append("path")
+          .attr("class", "erase")
+          .attr("clip-path", `url(#${otherId})`)
+          .attr("d", path(collection(data["1810"], region[0])));
+        const divider = state.divider();
+        await trace(divider, true);
+        divider.remove();
+        await pieces.transition().duration(FADE_MS).style("stroke", "#ffffff").end();
+        pieces.style("stroke", null);
+        state.busy = false;
+        return;
+      }
+
+      const fadeIn = pieces.transition().duration(DRAW_MS).style("opacity", 1).end();
+      const g = splitLines(state, false);
+      await Promise.all([g.animate(false), fadeIn]);
+
+      // Fade the dark outlines out and the white borders back in.
+      await Promise.all([
+        g.group.transition().duration(FADE_MS).style("opacity", 0).end(),
+        pieces.transition().duration(FADE_MS).style("stroke", "#ffffff").end()
+      ]);
+      g.group.remove();
+      pieces.style("stroke", null);
+      state.busy = false;
+    }
+
+    // The 1810 outline plus the 1812 outlines clipped inside it, for a split district.
+    // animate(reverse) draws the new lines in, or erases them when reverse is true.
+    function splitLines(state, shown) {
+      const group = overlay.append("g");
+      group.append("path").attr("class", "old10").attr("d", state.shape10);
+      let clipped = group.append("g").attr("clip-path", `url(#${state.clipId})`);
+
+      if (state.region.some(n => wipeLeftToRight.has(n))) {
+        // Reveal with a rectangle that grows from the left edge of the district to the right.
+        const [[x0, y0], [x1, y1]] = path.bounds(collection(data["1810"], state.region[0]));
+        const wipeId = `${state.clipId}-wipe-${clipCount++}`;
+        const wipeClip = group.append("clipPath").attr("id", wipeId);  // removed with the group
+        const rect = wipeClip.append("rect")
+          .attr("x", x0 - 5).attr("y", y0 - 5).attr("height", y1 - y0 + 10)
+          .attr("width", shown ? x1 - x0 + 10 : 0);
+        clipped = clipped.append("g").attr("clip-path", `url(#${wipeId})`);
+        state.parts.forEach(n => clipped.append("path")
+          .attr("class", "new12")
+          .attr("d", path(collection(data["1812"], n))));
+        const animate = reverse => rect.transition()
+          .duration(DRAW_MS)
+          .ease(d3.easeCubicInOut)
+          .attr("width", reverse ? 0 : x1 - x0 + 10)
+          .end();
+        return { group, animate };
+      }
+
+      const lines = state.parts.map(n => clipped.append("path")
+        .attr("class", "new12")
+        .attr("d", path(collection(data["1812"], n))));
+      return { group, animate: reverse => Promise.all(lines.map(l => trace(l, reverse))) };
+    }
+
+    // Play the subdivision backwards and go back to the 1810 lines.
+    async function revert(state) {
+      if (state.busy) return;
+      state.busy = true;
+      hideTooltip();
+      const pieces = state.pieces;
+
+      if (state.region.length > 1) {
+        // Merge: draw the old dividing line back in, then drop the joined piece.
+        const divider = state.divider();
+        await trace(divider, false);
+        state.group.remove();
+        divider.remove();
+      } else {
+        // Split: dark outlines fade in as the white borders go, then the new lines erase
+        // and the pieces fade out.
+        const g = splitLines(state, true);
+        g.group.style("opacity", 0);
+        await Promise.all([
+          g.group.transition().duration(FADE_MS).style("opacity", 1).end(),
+          pieces.transition().duration(FADE_MS).style("stroke", YELLOW).end()
+        ]);
+        await Promise.all([
+          g.animate(true),
+          pieces.transition().duration(DRAW_MS).style("opacity", 0).end()
+        ]);
+        await g.group.transition().duration(FADE_MS).style("opacity", 0).end();
+        g.group.remove();
+        state.group.remove();
+      }
+
+      state.clips.forEach(c => c.remove());
+      state.region.forEach(n => done.delete(n));
+    }
+
+    districts.selectAll("path")
+      .data(data["1810"].features)
+      .join("path")
+      .attr("d", path)
+      .attr("fill", d => changing.has(key(d.properties)) ? YELLOW : GREY)
+      .classed("clickable", d => changing.has(key(d.properties)))
+      .on("mousemove", showTooltip)
+      .on("mouseleave", hideTooltip)
+      .on("click", (event, d) => { if (changing.has(key(d.properties))) subdivide(key(d.properties)); });
+  });
+</script>
+</body>
+</html>
